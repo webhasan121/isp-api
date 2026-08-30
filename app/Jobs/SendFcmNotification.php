@@ -25,10 +25,8 @@ class SendFcmNotification implements ShouldQueue
     ) {
     }
 
-    public function handle(
-        Messaging $messaging
-    ): void {
-
+    public function handle(Messaging $messaging): void
+    {
         $user = User::query()
             ->with('deviceTokens')
             ->find($this->userId);
@@ -52,41 +50,33 @@ class SendFcmNotification implements ShouldQueue
                     : json_encode($value);
         }
 
-
         foreach ($user->deviceTokens as $deviceToken) {
-
             try {
 
-                $message = CloudMessage::withTarget(
-                    'token',
-                    $deviceToken->token
-                )
+                $message = CloudMessage::new()
+                    ->withToken($deviceToken->token)
                     ->withNotification(
                         Notification::create(
                             $this->title,
                             $this->body
                         )
                     )
-                    ->withData(
-                        $messageData
-                    );
+                    ->withData($messageData);
 
                 $messaging->send($message);
 
+                Log::info('FCM notification sent', [
+                    'user_id' => $user->id,
+                    'device_token_id' => $deviceToken->id,
+                ]);
+
             } catch (\Throwable $e) {
 
-                Log::error(
-                    'FCM notification failed',
-                    [
-                        'user_id' => $user->id,
-
-                        'device_token_id' =>
-                            $deviceToken->id,
-
-                        'error' =>
-                            $e->getMessage(),
-                    ]
-                );
+                Log::error('FCM notification failed', [
+                    'user_id' => $user->id,
+                    'device_token_id' => $deviceToken->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
     }
